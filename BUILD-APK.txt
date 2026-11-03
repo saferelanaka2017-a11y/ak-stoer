@@ -1,0 +1,13 @@
+طريقتان لبناء ملف APK:
+
+[الطريقة 1 - بدون تثبيت أي برنامج: GitHub]
+1) أنشئ مستودع (Repository) على github.com وارفع عليه محتوى هذا المجلد.
+2) ادخل تبويب Actions ثم "Build Android APK" ثم Run workflow.
+3) بعد دقائق نزّل الملف AKStore-apk (بداخله app-debug.apk) وثبّته على الموبايل.
+
+[الطريقة 2 - على جهازك]
+1) ثبّت Node.js و Android Studio.
+2) npm install
+3) npm run android:sync
+4) npx cap open android  ثم Build > Build APK(s)
+   الناتج: android/app/build/outputs/apk/debug/app-debug.apk

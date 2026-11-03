@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>AK Store - نظام الكريم لإدارة المبيعات ونقاط البيع</title>
+    <meta name="description" content="AK Store — نظام متكامل لنقاط البيع وإدارة المخزون، المشتريات، المرتجعات، الأقساط، العملاء، والموردين مع دعم الطباعة وقاعدة بيانات محلية." />
+    <meta property="og:title" content="AK Store - نظام الكريم لإدارة المبيعات ونقاط البيع" />
+    <meta property="og:description" content="AK Store — نظام متكامل لنقاط البيع وإدارة المخزون، المشتريات، المرتجعات، الأقساط، العملاء، والموردين مع دعم الطباعة وقاعدة بيانات محلية." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#1e40af" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="AK Store" />
+    <meta name="application-name" content="AK Store" />
+    <meta name="msapplication-TileColor" content="#1e40af" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <script>
+      // Early Offline-First Boot: Verify Local IndexedDB/SQLite BEFORE any external network or font request
+      (function () {
+        try {
+          // 1. Clear any old corrupted warmup.html state from sessionStorage
+          try {
+            sessionStorage.removeItem('warmup_start_time');
+            sessionStorage.removeItem('warmup_last_reload_time');
+            sessionStorage.removeItem('warmup_failed_sent');
+          } catch (e) {}
+
+          // 2. Verify Local IndexedDB / SQLite availability first (Offline-First Gatekeeper)
+          window.__akLocalDbReady = false;
+          try {
+            if (typeof indexedDB !== 'undefined') {
+              var idbReq = indexedDB.open('AKStore_Local_SQLite_Engine_v1', 1);
+              idbReq.onupgradeneeded = function () {
+                var db = idbReq.result;
+                if (!db.objectStoreNames.contains('sqlite_tables')) db.createObjectStore('sqlite_tables');
+                if (!db.objectStoreNames.contains('sqlite_snapshots')) db.createObjectStore('sqlite_snapshots');
+                if (!db.objectStoreNames.contains('sync_outbox')) db.createObjectStore('sync_outbox');
+                if (!db.objectStoreNames.contains('engine_meta')) db.createObjectStore('engine_meta');
+              };
+              idbReq.onsuccess = function () {
+                window.__akLocalDbReady = true;
+                try { idbReq.result.close(); } catch (e) {}
+              };
+              idbReq.onerror = function () {
+                window.__akLocalDbReady = true;
+              };
+            } else {
+              window.__akLocalDbReady = true;
+            }
+          } catch (e) {
+            window.__akLocalDbReady = true;
+          }
+
+          // 3. Load Google Fonts asynchronously ONLY when online so offline mode never hangs on DNS/font requests
+          function loadFontsIfOnline() {
+            if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+            if (document.getElementById('ak-google-font')) return;
+            var link = document.createElement('link');
+            link.id = 'ak-google-font';
+            link.rel = 'stylesheet';
+            link.href = 'https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300;400;500;600;700&display=swap';
+            link.media = 'print';
+            link.onload = function () { link.media = 'all'; };
+            document.head.appendChild(link);
+          }
+          if (typeof navigator !== 'undefined' && navigator.onLine !== false) {
+            setTimeout(loadFontsIfOnline, 50);
+          }
+          window.addEventListener('online', loadFontsIfOnline);
+
+          window.__deferredPwaPrompt = null;
+          window.addEventListener('beforeinstallprompt', function (e) {
+            e.preventDefault();
+            window.__deferredPwaPrompt = e;
+          });
+
+          // 4. Register True Offline-First & Warmup-Shield Service Worker (/sw.js) IMMEDIATELY
+          window.__akOfflineCacheReady = false;
+          function selfCacheRunningApp() {
+            if (!('caches' in window)) return;
+            caches.open('ak-store-offline-v4').then(function (cache) {
+              // A) Fetch & cache clean non-redirected HTML shell + save backup in IndexedDB
+              fetch('/index.html', { credentials: 'same-origin', cache: 'no-cache' })
+                .then(function (res) { return res && res.ok ? res.text() : null; })
+                .then(function (htmlText) {
+                  if (!htmlText || htmlText.indexOf('id="root"') === -1) return;
+                  var cleanHtmlRes = new Response(htmlText, {
+                    status: 200,
+                    statusText: 'OK',
+                    headers: { 'Content-Type': 'text/html; charset=utf-8' }
+                  });
+                  cache.put('/', cleanHtmlRes.clone());
+                  cache.put('/index.html', cleanHtmlRes.clone());
+                  try {
+                    if (typeof indexedDB !== 'undefined') {
+                      var req = indexedDB.open('AKStore_Local_SQLite_Engine_v1', 1);
+                      req.onsuccess = function () {
+                        try {
+                          var db = req.result;
+                          var tx = db.transaction(['engine_meta'], 'readwrite');
+                          tx.objectStore('engine_meta').put(htmlText, 'offline_app_shell_html');
+                          tx.oncomplete = function () { try { db.close(); } catch (e) {} };
+                        } catch (e) {}
+                      };
+                    }
+                  } catch (e) {}
+                })
+                .catch(function () {});
+
+              // B) Cache all active <script src> and <link rel="stylesheet" href> directly from client session
+              var nodes = document.querySelectorAll('script[src], link[rel="stylesheet"][href], link[rel="manifest"][href], link[rel="icon"][href]');
+              var tasks = [];
+              for (var i = 0; i < nodes.length; i++) {
+                var rawUrl = nodes[i].getAttribute('src') || nodes[i].getAttribute('href');
+                if (!rawUrl || rawUrl.indexOf('fonts.googleapis.com') !== -1) continue;
+                (function (assetUrl) {
+                  tasks.push(
+                    fetch(assetUrl, { credentials: 'same-origin' })
+                      .then(function (res) {
+                        if (!res || !res.ok || res.status !== 200) return;
+                        var ct = res.headers.get('content-type') || '';
+                        if (ct.indexOf('text/html') !== -1) return;
+                        return res.arrayBuffer().then(function (buf) {
+                          var cleanRes = new Response(buf, {
+                            status: 200,
+                            statusText: 'OK',
+                            headers: { 'Content-Type': ct || 'application/octet-stream' }
+                          });
+                          return cache.put(assetUrl, cleanRes);
+                        });
+                      })
+                      .catch(function () {})
+                  );
+                })(rawUrl);
+              }
+              Promise.all(tasks).then(function () {
+                window.__akOfflineCacheReady = true;
+                try {
+                  window.dispatchEvent(new CustomEvent('ak-offline-ready'));
+                } catch (e) {}
+              });
+            }).catch(function () {});
+          }
+
+          if ('serviceWorker' in navigator && window.location.protocol.indexOf('http') === 0) {
+            navigator.serviceWorker
+              .register('/sw.js', { scope: '/', updateViaCache: 'none' })
+              .then(function (reg) {
+                if (typeof navigator === 'undefined' || navigator.onLine !== false) {
+                  reg.update().catch(function () {});
+                }
+                if (reg.waiting) {
+                  reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                }
+                if (reg.active && (typeof navigator === 'undefined' || navigator.onLine !== false)) {
+                  reg.active.postMessage({ type: 'PRECACHE_NOW' });
+                }
+              })
+              .catch(function () {});
+
+            if (document.readyState === 'loading') {
+              document.addEventListener('DOMContentLoaded', selfCacheRunningApp);
+            } else {
+              selfCacheRunningApp();
+            }
+            window.addEventListener('load', selfCacheRunningApp);
+          }
+
+          if (typeof window.globalThis === 'undefined') { window.globalThis = window; }
+          if (typeof Object.hasOwn !== 'function') {
+            Object.hasOwn = function (obj, prop) {
+              return Object.prototype.hasOwnProperty.call(Object(obj), prop);
+            };
+          }
+          if (!Array.prototype.at) {
+            Array.prototype.at = function (n) {
+              n = Math.trunc ? Math.trunc(n) : (n | 0);
+              if (n < 0) n += this.length;
+              return (n < 0 || n >= this.length) ? undefined : this[n];
+            };
+          }
+          if (!String.prototype.at) {
+            String.prototype.at = function (n) {
+              n = Math.trunc ? Math.trunc(n) : (n | 0);
+              if (n < 0) n += this.length;
+              return (n < 0 || n >= this.length) ? undefined : this.charAt(n);
+            };
+          }
+          if (!Array.prototype.toSorted) {
+            Array.prototype.toSorted = function (compareFn) {
+              return Array.prototype.slice.call(this).sort(compareFn);
+            };
+          }
+          if (!Array.prototype.toReversed) {
+            Array.prototype.toReversed = function () {
+              return Array.prototype.slice.call(this).reverse();
+            };
+          }
+          if (!String.prototype.replaceAll) {
+            String.prototype.replaceAll = function (search, replacement) {
+              return this.split(String(search)).join(String(replacement));
+            };
+          }
+          if (typeof window.structuredClone !== 'function') {
+            window.structuredClone = function (val) {
+              try { return JSON.parse(JSON.stringify(val)); } catch (e) { return val; }
+            };
+          }
+          var ua = navigator.userAgent || '';
+          var isOldWin = /Windows NT (5\.|6\.[0123])/i.test(ua);
+          var isLowRam = (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2);
+          var savedLowSpec = localStorage.getItem('pos_low_spec_mode');
+          var forceLite = window.location.search.indexOf('lite=1') !== -1 || window.location.search.indexOf('win7=1') !== -1;
+          if (forceLite || savedLowSpec === 'true' || (savedLowSpec === null && (isOldWin || isLowRam))) {
+            document.documentElement.className += ' low-spec-mode';
+            document.documentElement.setAttribute('data-low-spec', 'true');
+          }
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body class="bg-[#e9eff5] text-slate-800 antialiased selection:bg-blue-500 selection:text-white">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

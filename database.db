@@ -1,0 +1,4 @@
+SQLite format 3
+-- Soft Glass POS SQLite Database file
+-- Created automatically on first run
+PRAGMA foreign_keys = ON;

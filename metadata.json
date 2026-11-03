@@ -1,0 +1,6 @@
+{
+  "name": "نظام نقاط البيع وإدارة المبيعات - AK Store",
+  "description": "نظام متكامل لنقاط البيع وإدارة المخزون، المشتريات، المرتجعات، الأقساط، العملاء، والموردين مع دعم الطباعة وقاعدة بيانات محلية.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

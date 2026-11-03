@@ -1,0 +1,6 @@
+{
+  "appId": "com.akstore.pos",
+  "appName": "AK Store",
+  "webDir": "dist",
+  "android": { "allowMixedContent": true }
+}
